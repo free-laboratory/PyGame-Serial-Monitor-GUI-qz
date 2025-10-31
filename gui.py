@@ -3,9 +3,9 @@ import pygame_gui
 from collections import deque
 import random
 
-import pygame_widgets
-from pygame_widgets.slider import Slider
-from pygame_widgets.textbox import TextBox
+#import pygame_widgets
+#from pygame_widgets.slider import Slider
+#from pygame_widgets.textbox import TextBox
 
 import serial
 import serial.tools.list_ports
@@ -88,8 +88,129 @@ class OptionsUIApp:
         self.all_enabled = True
         self.all_shown = True
 
+    def _create_sliders(self):
+        """
+        12 pygame_gui sliders (1–100), 6 left + 6 right.
+        Compact layout; value label always wide enough for '100';
+        clamps to window edges to avoid going off-screen; anchored near
+        the bottom of the big center box.
+        """
+        # Remove old widgets if rebuilding
+        if hasattr(self, "_slider_rows"):
+            for row in self._slider_rows:
+                row['label'].kill(); row['slider'].kill(); row['value'].kill()
+        self._slider_rows = []
+
+        W, H = self.options.resolution
+        margin = 12
+
+        # Scale a bit with window width (compact but readable)
+        # clamp between 0.75x and 1.0x of "normal"
+        scale = max(0.75, min(1.0, W / 1200.0))
+
+        # Anchor to the big center box from your helper
+        box = getattr(self, "serial_msg_disp", None)
+        if box is not None and hasattr(box, "relative_rect"):
+            box_rect = box.relative_rect
+        else:
+            box_rect = pygame.Rect(int(W * 0.2), 100, int(W * 0.6), int(H * 0.65))
+
+        # Horizontal bands: LEFT = [margin .. box.left - margin]
+        # RIGHT = [box.right + margin .. W - margin] (scales with window width)
+        left_band_start  = margin
+        left_band_end    = max(left_band_start + 120, box_rect.left - margin)
+
+        right_band_start = box_rect.right + margin
+        right_band_end   = max(right_band_start + 120, W - margin)
+
+        # Clamp bands inside window
+        left_band_end  = min(left_band_end, W - margin)
+        right_band_end = min(right_band_end, W - margin)
+
+        # Row sizing (compact)
+        per_col = 6
+        PAD_Y   = int(6 * scale)
+        ROW_MIN = int(22 * scale)
+        ROW_MAX = int(36 * scale)
+
+        # Controls widths (compact but visible)
+        LABEL_W = max(24, int(28 * scale))         # "S12" fits
+        VALUE_W = max(34, int(36 * scale))         # room for "100"
+        GAP_L_S = max(6,  int(6 * scale))
+        GAP_S_V = max(6,  int(6 * scale))
+        SLIDER_MIN_W = max(90, int(100 * scale))   # slider can get small but usable
+
+        def side_metrics(start_px: int, end_px: int):
+            """Compute slider/value geometry per side and keep inside window."""
+            band_w = max(140, end_px - start_px)
+            value_x = start_px + band_w - VALUE_W                 # value right-aligned to band
+            slider_x = start_px + LABEL_W + GAP_L_S
+            slider_w = max(SLIDER_MIN_W, value_x - GAP_S_V - slider_x)
+            # If the band is too tiny, shove value next to label and keep slider min size.
+            if slider_w < SLIDER_MIN_W:
+                slider_w = SLIDER_MIN_W
+                value_x  = slider_x + slider_w + GAP_S_V
+            return slider_x, slider_w, value_x, start_px
+
+        l_slider_x, l_slider_w, l_value_x, l_base_x = side_metrics(left_band_start, left_band_end)
+        r_slider_x, r_slider_w, r_value_x, r_base_x = side_metrics(right_band_start, right_band_end)
+
+        # Vertical layout: anchor near the bottom of the box
+        bottom_margin = max(10, int(12 * scale))
+        usable_h = max(180, box_rect.height - (bottom_margin + 12))
+        row_h = max(ROW_MIN, min(ROW_MAX, (usable_h - (per_col - 1) * PAD_Y) // per_col))
+        total_block_h = per_col * row_h + (per_col - 1) * PAD_Y
+        top_y = max(box_rect.top + 12, box_rect.bottom - bottom_margin - total_block_h)
+
+        # Optional small header
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(box_rect.centerx - 50, max(0, box_rect.top - 20), 100, 16),
+            text="Controls",
+            manager=self.ui_manager
+        )
+
+        slider_min, slider_max, default = 1, 100, 50
+        items = []
+
+        for i in range(12):
+            col = 0 if i < 6 else 1
+            row = i if i < 6 else (i - 6)
+            y   = top_y + row * (row_h + PAD_Y)
+
+            if col == 0:
+                base_x   = l_base_x
+                s_x, s_w = l_slider_x, l_slider_w
+                v_x      = l_value_x
+            else:
+                base_x   = r_base_x
+                s_x, s_w = r_slider_x, r_slider_w
+                v_x      = r_value_x
+
+            # Final clamp so nothing goes off-screen horizontally
+            s_w = max(SLIDER_MIN_W, min(s_w, W - margin - s_x - GAP_S_V - VALUE_W))
+            v_x = min(v_x, W - margin - VALUE_W)
+
+            label_rect  = pygame.Rect(base_x, y, LABEL_W, row_h)
+            slider_rect = pygame.Rect(s_x,    y + 3, s_w,  row_h - 6)
+            value_rect  = pygame.Rect(v_x,    y,     VALUE_W, row_h)
+
+            lbl = pygame_gui.elements.UILabel(label_rect, f"S{i+1}", manager=self.ui_manager)
+            sld = pygame_gui.elements.UIHorizontalSlider(slider_rect, default, (slider_min, slider_max), manager=self.ui_manager)
+            val = pygame_gui.elements.UILabel(value_rect, str(default), manager=self.ui_manager)
+
+            items.append({'label': lbl, 'slider': sld, 'value': val})
+
+        self._slider_rows = items
+
+
+
+
+
+
+
     def recreate_ui(self):
         event_functions.recreate_ui_helperfunction(self)
+        self._create_sliders()
 
     def create_message_window(self):
         self.button_response_timer.tick()
@@ -126,6 +247,18 @@ class OptionsUIApp:
                 self.running = False
 
             self.ui_manager.process_events(event)
+
+            # --- handle built-in slider moves ---
+            is_slider_event = (
+                (event.type == pygame.USEREVENT and getattr(event, "user_type", None) == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED)
+                or (event.type == getattr(pygame_gui, "UI_HORIZONTAL_SLIDER_MOVED", None))
+            )
+            if is_slider_event and hasattr(self, "_slider_rows"):
+                for idx, row in enumerate(self._slider_rows):
+                    if event.ui_element is row['slider']:
+                        val = int(row['slider'].get_current_value())
+                        row['value'].set_text(str(val))
+                        break   
 
 
             if (event.type == pygame_gui.UI_TEXT_ENTRY_FINISHED):
@@ -207,6 +340,7 @@ class OptionsUIApp:
 
             ###change this stuff bc created new serial_handler file^^
     
+    """
     class Slider:
         def __init__(self, pos: tuple, size: tuple, initial_val: float, min: int, max: int) -> None:
             self.pos = pos
@@ -252,7 +386,7 @@ class OptionsUIApp:
         def display_value(self, app):
             self.text = UI.fonts['m'].render(str(int(self.get_value())), True, "white", None)
             app.screen.blit(self.text, self.label_rect)
-
+    """
 
 
 
