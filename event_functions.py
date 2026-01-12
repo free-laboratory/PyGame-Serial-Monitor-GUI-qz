@@ -98,3 +98,15 @@ def recreate_ui_helperfunction(something):
     )
 
     something.serial_msg_entry.set_text('')
+
+def on_slider_changed(idx: int, value: int, send_fn=None):
+    # terminal log
+    print(f"S{idx+1} -> {int(value)}")
+
+    # optional serial send: pass a function from gui.py that writes a line
+    if callable(send_fn):
+        try:
+            send_fn(f"S{idx+1}={int(value)}")
+        except Exception:
+            # don't crash UI if serial isn't ready
+            pass
