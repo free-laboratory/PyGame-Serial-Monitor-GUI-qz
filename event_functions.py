@@ -108,5 +108,15 @@ def on_slider_changed(idx: int, value: int, send_fn=None):
         try:
             send_fn(f"S{idx+1}={int(value)}")
         except Exception:
-            # don't crash UI if serial isn't ready
-            pass
+            pass  # don't crash UI if serial isn't ready
+
+    # ROS publish (safe)
+    try:
+        _ensure_ros()
+        with _ros_lock:
+            msg = Int32MultiArray()
+            msg.data = [int(idx), int(value)]
+            _ros_pub.publish(msg)
+    except Exception as e:
+        # don't crash UI if ROS isn't available
+        print(f"[ROS publish skipped] {e}")

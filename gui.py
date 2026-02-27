@@ -8,6 +8,13 @@ import serial.tools.list_ports
 import os
 import re
 
+import threading
+import atexit
+
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Int32MultiArray
+
 from pygame_gui import UIManager, PackageResource
 
 from pygame_gui.elements import UIButton
@@ -26,6 +33,52 @@ enable_serial_monitor = 1  # 0-disable 1-in app 2-in terminal
 
 serial_msg_text = ""
 joysticks = None
+
+
+############################ros2 stuff###########################
+_ROS_TOPIC = "/gui/slider_moved"
+_ros_node = None
+_ros_pub = None
+_ros_spin_thread = None
+_ros_lock = threading.Lock()
+
+class _GuiRosPublisher(Node):
+    def __init__(self):
+        super().__init__("gui_slider_publisher")
+        self.pub = self.create_publisher(Int32MultiArray, _ROS_TOPIC, 10)
+        self.get_logger().info(f"GUI publishing slider events on {_ROS_TOPIC}")
+
+def _ensure_ros():
+    """Initialize ROS publisher once (safe to call multiple times)."""
+    global _ros_node, _ros_pub, _ros_spin_thread
+    if _ros_node is not None:
+        return
+
+    rclpy.init(args=None)
+    _ros_node = _GuiRosPublisher()
+    _ros_pub = _ros_node.pub
+
+    def _spin():
+        try:
+            rclpy.spin(_ros_node)
+        except Exception:
+            pass
+
+    _ros_spin_thread = threading.Thread(target=_spin, daemon=True)
+    _ros_spin_thread.start()
+
+def _shutdown_ros():
+    global _ros_node
+    try:
+        if _ros_node is not None:
+            _ros_node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+    except Exception:
+        pass
+
+atexit.register(_shutdown_ros)
+########################ros2 stuff end###########################
 
 
 class Options:
