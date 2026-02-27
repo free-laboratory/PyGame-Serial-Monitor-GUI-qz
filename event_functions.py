@@ -6,6 +6,13 @@ from pygame_gui.elements import UIDropDownMenu
 from pygame_gui.elements import UILabel
 from pygame_gui.elements.ui_text_box import UITextBox
 
+#ros2 imports
+import threading
+import atexit
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Int32MultiArray
+
 
 def recreate_ui_helperfunction(something):
     something.ui_manager.set_window_resolution(something.options.resolution)
@@ -99,18 +106,66 @@ def recreate_ui_helperfunction(something):
 
     something.serial_msg_entry.set_text('')
 
+
+
+#########################ros2 block################################
+_ROS_TOPIC = "/gui/slider_moved"
+_ros_node = None
+_ros_pub = None
+_ros_spin_thread = None
+_ros_lock = threading.Lock()
+
+class _GuiRosPublisher(Node):
+    def __init__(self):
+        super().__init__("gui_slider_publisher")
+        self.pub = self.create_publisher(Int32MultiArray, _ROS_TOPIC, 10)
+        self.get_logger().info(f"GUI publishing slider events on {_ROS_TOPIC}")
+
+def _ensure_ros():
+    global _ros_node, _ros_pub, _ros_spin_thread
+    if _ros_node is not None:
+        return
+
+    # avoid double-init issues
+    if not rclpy.ok():
+        rclpy.init(args=None)
+
+    _ros_node = _GuiRosPublisher()
+    _ros_pub = _ros_node.pub
+
+    def _spin():
+        try:
+            rclpy.spin(_ros_node)
+        except Exception:
+            pass
+
+    _ros_spin_thread = threading.Thread(target=_spin, daemon=True)
+    _ros_spin_thread.start()
+
+def _shutdown_ros():
+    global _ros_node
+    try:
+        if _ros_node is not None:
+            _ros_node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+    except Exception:
+        pass
+
+atexit.register(_shutdown_ros)
+#########################ros2 block################################
+
+
+
 def on_slider_changed(idx: int, value: int, send_fn=None):
-    # terminal log
     print(f"S{idx+1} -> {int(value)}")
 
-    # optional serial send: pass a function from gui.py that writes a line
     if callable(send_fn):
         try:
             send_fn(f"S{idx+1}={int(value)}")
         except Exception:
-            pass  # don't crash UI if serial isn't ready
+            pass
 
-    # ROS publish (safe)
     try:
         _ensure_ros()
         with _ros_lock:
@@ -118,5 +173,4 @@ def on_slider_changed(idx: int, value: int, send_fn=None):
             msg.data = [int(idx), int(value)]
             _ros_pub.publish(msg)
     except Exception as e:
-        # don't crash UI if ROS isn't available
         print(f"[ROS publish skipped] {e}")
