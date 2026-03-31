@@ -157,20 +157,26 @@ atexit.register(_shutdown_ros)
 
 
 
-def on_slider_changed(idx: int, value: int, send_fn=None):
-    print(f"S{idx+1} -> {int(value)}")
+# def on_slider_changed(idx: int, value: int, send_fn=None):
+#     print(f"S{idx+1} -> {int(value)}")
 
-    if callable(send_fn):
-        try:
-            send_fn(f"S{idx+1}={int(value)}")
-        except Exception:
-            pass
+#     if callable(send_fn):
+#         try:
+#             send_fn(f"S{idx+1}={int(value)}")
+#         except Exception:
+#             pass
 
-    try:
-        _ensure_ros()
-        with _ros_lock:
-            msg = Int32MultiArray()
-            msg.data = [int(idx), int(value)]
-            _ros_pub.publish(msg)
-    except Exception as e:
-        print(f"[ROS publish skipped] {e}")
+#     try:
+#         _ensure_ros()
+#         with _ros_lock:
+#             msg = Int32MultiArray()
+#             msg.data = [int(idx), int(value)]
+#             _ros_pub.publish(msg)
+#     except Exception as e:
+#         print(f"[ROS publish skipped] {e}")
+
+from ros_slider_bridge import set_slider_and_publish
+
+def on_slider_changed(idx, val):
+    print(f"Slider {idx+1} changed to {val}")
+    set_slider_and_publish(idx, val)

@@ -311,6 +311,8 @@ class OptionsUIApp:
                             and idx < len(self.shared_values)
                         ):
                             self.shared_values[idx] = float(val)
+
+                        on_slider_changed(idx, val)
                         break
 
             # Mouse released: fire the high-level callback once
