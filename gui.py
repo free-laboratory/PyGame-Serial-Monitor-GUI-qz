@@ -20,7 +20,7 @@ from pygame_gui.windows import UIMessageWindow
 
 import gvar_ctrl
 import event_functions
-from event_functions import on_slider_changed
+from event_functions import on_slider_changed, send_ik_step
 
 enable_serial_monitor = 1  # 0-disable 1-in app 2-in terminal
 
@@ -88,6 +88,28 @@ class OptionsUIApp:
         self._active_slider_idx = None
         self._active_slider_val = None
 
+        self.serial_msg_disp = None
+        self.serial_msg_entry = None
+
+        self._slider_rows = []
+        self._active_slider_idx = None
+        self._active_slider_val = None
+
+        # IK button references
+        self.ik_btn_x_pos = None
+        self.ik_btn_x_neg = None
+        self.ik_btn_y_pos = None
+        self.ik_btn_y_neg = None
+        self.ik_btn_z_pos = None
+        self.ik_btn_z_neg = None
+
+        self.ik_btn_roll_pos = None
+        self.ik_btn_roll_neg = None
+        self.ik_btn_pitch_pos = None
+        self.ik_btn_pitch_neg = None
+        self.ik_btn_yaw_pos = None
+        self.ik_btn_yaw_neg = None
+
         self.recreate_ui()
 
         self.clock = pygame.time.Clock()
@@ -100,6 +122,49 @@ class OptionsUIApp:
         self.all_enabled = True
         self.all_shown = True
 
+
+    ######Inverse Kinematics buttons
+    def _create_ik_buttons(self):
+        W, H = self.options.resolution
+
+        box = getattr(self, "serial_msg_disp", None)
+        if box is not None and hasattr(box, "relative_rect"):
+            box_rect = box.relative_rect
+        else:
+            box_rect = pygame.Rect(int(W * 0.2), 100, int(W * 0.6), int(H * 0.65))
+
+        btn_w = 70
+        btn_h = 28
+        gap = 8
+
+        start_x = box_rect.centerx - 2 * btn_w - gap
+        start_y = box_rect.top + 30
+
+        labels = [
+            ("-X", "ik_btn_x_neg"), ("+X", "ik_btn_x_pos"),
+            ("-Y", "ik_btn_y_neg"), ("+Y", "ik_btn_y_pos"),
+            ("-Z", "ik_btn_z_neg"), ("+Z", "ik_btn_z_pos"),
+            ("-R", "ik_btn_roll_neg"), ("+R", "ik_btn_roll_pos"),
+            ("-P", "ik_btn_pitch_neg"), ("+P", "ik_btn_pitch_pos"),
+            ("-Yaw", "ik_btn_yaw_neg"), ("+Yaw", "ik_btn_yaw_pos"),
+        ]
+
+        for i, (text, attr) in enumerate(labels):
+            row = i // 4
+            col = i % 4
+            x = start_x + col * (btn_w + gap)
+            y = start_y + row * (btn_h + gap)
+
+            setattr(
+                self,
+                attr,
+                UIButton(
+                    pygame.Rect(x, y, btn_w, btn_h),
+                    text,
+                    self.ui_manager
+                )
+            )
+    
     # ------------------------------------------------------------------
     # SLIDER CREATION (12 pygame_gui sliders)
     # ------------------------------------------------------------------
@@ -175,7 +240,6 @@ class OptionsUIApp:
             right_band_start, right_band_end
         )
 
-        # Vertical layout: anchor near the bottom of the box
         bottom_margin = max(10, int(12 * scale))
         usable_h = max(180, box_rect.height - (bottom_margin + 12))
         row_h = max(
@@ -246,6 +310,8 @@ class OptionsUIApp:
     def recreate_ui(self):
         # build all your original UI widgets
         event_functions.recreate_ui_helperfunction(self)
+        #ik buttons
+        self._create_ik_buttons()
         # then create slider widgets
         self._create_sliders()
 
@@ -375,6 +441,32 @@ class OptionsUIApp:
 
                 if event.ui_element == self.serial_test_button:
                     print("Test button pressed")
+                
+                #ik buttons
+                if event.ui_element == self.ik_btn_x_pos:
+                    send_ik_step("x", +1)
+                if event.ui_element == self.ik_btn_x_neg:
+                    send_ik_step("x", -1)
+                if event.ui_element == self.ik_btn_y_pos:
+                    send_ik_step("y", +1)
+                if event.ui_element == self.ik_btn_y_neg:
+                    send_ik_step("y", -1)
+                if event.ui_element == self.ik_btn_z_pos:
+                    send_ik_step("z", +1)
+                if event.ui_element == self.ik_btn_z_neg:
+                    send_ik_step("z", -1)
+                if event.ui_element == self.ik_btn_roll_pos:
+                    send_ik_step("roll", +1)
+                if event.ui_element == self.ik_btn_roll_neg:
+                    send_ik_step("roll", -1)
+                if event.ui_element == self.ik_btn_pitch_pos:
+                    send_ik_step("pitch", +1)
+                if event.ui_element == self.ik_btn_pitch_neg:
+                    send_ik_step("pitch", -1)
+                if event.ui_element == self.ik_btn_yaw_pos:
+                    send_ik_step("yaw", +1)
+                if event.ui_element == self.ik_btn_yaw_neg:
+                    send_ik_step("yaw", -1)
 
             if event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
                 if event.ui_element == self.test_drop_down:
@@ -389,6 +481,8 @@ class OptionsUIApp:
                         enable_serial_monitor = 0
                     else:
                         enable_serial_monitor = 0
+
+        
 
     def run(self):
         global joysticks
