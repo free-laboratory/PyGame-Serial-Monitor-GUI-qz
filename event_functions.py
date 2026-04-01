@@ -175,8 +175,27 @@ atexit.register(_shutdown_ros)
 #     except Exception as e:
 #         print(f"[ROS publish skipped] {e}")
 
-from ros_slider_bridge import set_slider_and_publish
+
+#mujoco specific stuff
+from mujoco_client import send_joint_positions
+import math
+
+# 12 slider-controlled joint targets
+_joint_targets = [0.0] * 12
+
+def slider_to_radians(value: float) -> float:
+    value = max(1.0, min(100.0, float(value)))
+    ratio = (value - 1.0) / 99.0
+    return -math.pi + ratio * (2.0 * math.pi)
 
 def on_slider_changed(idx, val):
+    global _joint_targets
     print(f"Slider {idx+1} changed to {val}")
-    set_slider_and_publish(idx, val)
+
+    if 0 <= idx < 12:
+        _joint_targets[idx] = slider_to_radians(val)
+
+    try:
+        send_joint_positions(_joint_targets)
+    except Exception as e:
+        print(f"[MuJoCo send failed] {e}")
