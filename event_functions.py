@@ -9,9 +9,11 @@ from pygame_gui.elements.ui_text_box import UITextBox
 #ros2 imports
 import threading
 import atexit
-import rclpy
-from rclpy.node import Node
-from std_msgs.msg import Int32MultiArray
+
+# dont need these for mujoco
+# import rclpy
+# from rclpy.node import Node
+# from std_msgs.msg import Int32MultiArray
 
 
 def recreate_ui_helperfunction(something):
@@ -108,52 +110,52 @@ def recreate_ui_helperfunction(something):
 
 
 
-#########################ros2 block################################
-_ROS_TOPIC = "/gui/slider_moved"
-_ros_node = None
-_ros_pub = None
-_ros_spin_thread = None
-_ros_lock = threading.Lock()
+# #########################ros2 block################################
+# _ROS_TOPIC = "/gui/slider_moved"
+# _ros_node = None
+# _ros_pub = None
+# _ros_spin_thread = None
+# _ros_lock = threading.Lock()
 
-class _GuiRosPublisher(Node):
-    def __init__(self):
-        super().__init__("gui_slider_publisher")
-        self.pub = self.create_publisher(Int32MultiArray, _ROS_TOPIC, 10)
-        self.get_logger().info(f"GUI publishing slider events on {_ROS_TOPIC}")
+# class _GuiRosPublisher(Node):
+#     def __init__(self):
+#         super().__init__("gui_slider_publisher")
+#         self.pub = self.create_publisher(Int32MultiArray, _ROS_TOPIC, 10)
+#         self.get_logger().info(f"GUI publishing slider events on {_ROS_TOPIC}")
 
-def _ensure_ros():
-    global _ros_node, _ros_pub, _ros_spin_thread
-    if _ros_node is not None:
-        return
+# def _ensure_ros():
+#     global _ros_node, _ros_pub, _ros_spin_thread
+#     if _ros_node is not None:
+#         return
 
-    # avoid double-init issues
-    if not rclpy.ok():
-        rclpy.init(args=None)
+#     # avoid double-init issues
+#     if not rclpy.ok():
+#         rclpy.init(args=None)
 
-    _ros_node = _GuiRosPublisher()
-    _ros_pub = _ros_node.pub
+#     _ros_node = _GuiRosPublisher()
+#     _ros_pub = _ros_node.pub
 
-    def _spin():
-        try:
-            rclpy.spin(_ros_node)
-        except Exception:
-            pass
+#     def _spin():
+#         try:
+#             rclpy.spin(_ros_node)
+#         except Exception:
+#             pass
 
-    _ros_spin_thread = threading.Thread(target=_spin, daemon=True)
-    _ros_spin_thread.start()
+#     _ros_spin_thread = threading.Thread(target=_spin, daemon=True)
+#     _ros_spin_thread.start()
 
-def _shutdown_ros():
-    global _ros_node
-    try:
-        if _ros_node is not None:
-            _ros_node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
-    except Exception:
-        pass
+# def _shutdown_ros():
+#     global _ros_node
+#     try:
+#         if _ros_node is not None:
+#             _ros_node.destroy_node()
+#         if rclpy.ok():
+#             rclpy.shutdown()
+#     except Exception:
+#         pass
 
-atexit.register(_shutdown_ros)
-#########################ros2 block################################
+# atexit.register(_shutdown_ros)
+# #########################ros2 block################################
 
 
 

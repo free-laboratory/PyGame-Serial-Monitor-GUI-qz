@@ -1,29 +1,15 @@
-import json
-import socket
-from typing import List
+import roslibpy
 
-HOST = "127.0.0.1"
-PORT = 5555
+_ros = roslibpy.Ros(host='127.0.0.1', port=9090)
+_ros.run()
 
-_sock = None
+_topic = roslibpy.Topic(
+    _ros,
+    '/gui/joint_targets',
+    'std_msgs/Float64MultiArray'
+)
 
-
-def _connect():
-    global _sock
-    if _sock is not None:
-        return _sock
-
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((HOST, PORT))
-    _sock = s
-    return _sock
-
-
-def send_joint_positions(joints: List[float]) -> None:
-    s = _connect()
-    msg = {
-        "type": "joint",
-        "positions": joints,
-    }
-    payload = (json.dumps(msg) + "\n").encode("utf-8")
-    s.sendall(payload)
+def send_joint_positions(joints):
+    _topic.publish(roslibpy.Message({
+        'data': list(joints)
+    }))
